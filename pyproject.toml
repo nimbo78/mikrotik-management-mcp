@@ -1,0 +1,24 @@
+[project]
+name = "mikrotik-management-mcp"
+version = "0.1.0"
+description = "🔧 MCP server for MikroTik RouterOS management via REST API"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=1.9.0,<2.0.0",
+    "httpx>=0.28.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "respx>=0.22",
+]
+
+[project.scripts]
+mikrotik-management-mcp = "mikrotik_management_mcp.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
