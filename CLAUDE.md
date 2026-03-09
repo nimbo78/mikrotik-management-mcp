@@ -577,7 +577,7 @@ build-backend = "hatchling.build"
 ```json
 {
   "mcpServers": {
-    "mikrotik": {
+    "mikrotik-management-mcp": {
       "command": "python",
       "args": ["-m", "mikrotik_management_mcp"]
     }
@@ -590,7 +590,7 @@ build-backend = "hatchling.build"
 ```json
 {
   "mcpServers": {
-    "mikrotik": {
+    "mikrotik-management-mcp": {
       "type": "url",
       "url": "http://192.168.81.44:8965/mcp",
       "headers": {

@@ -135,7 +135,7 @@ Only `host` is required — the rest have sensible defaults (port 443, admin use
 ```json
 {
   "mcpServers": {
-    "mikrotik": {
+    "mikrotik-management-mcp": {
       "command": "python",
       "args": ["-m", "mikrotik_management_mcp"]
     }
@@ -148,7 +148,7 @@ Only `host` is required — the rest have sensible defaults (port 443, admin use
 ```json
 {
   "mcpServers": {
-    "mikrotik": {
+    "mikrotik-management-mcp": {
       "type": "url",
       "url": "http://192.168.81.44:8965/mcp",
       "headers": {
