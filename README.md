@@ -6,7 +6,7 @@ MCP server that lets LLM agents (Claude, GPT, etc.) manage MikroTik RouterOS dev
 
 ## ⚡ Features
 
-- 🔌 **8 tools** — CRUD, arbitrary commands, system info, backup create & download
+- 🔌 **77 tools** — 8 generic + 69 convenience across 12 domains (firewall, NAT, DNS, DHCP, VLANs, containers, and more)
 - 🔒 **Stateless** — no credentials stored, every call includes connection params
 - 🚀 **Dual transport** — `stdio` for local, `streamable-http` for Docker/network
 - 🛡️ **Security** — target allowlists, client allowlists, bearer token auth
@@ -76,6 +76,8 @@ environment:
 
 ## 🔧 Available Tools
 
+### Generic Tools (cover 100% of the RouterOS REST API)
+
 | Tool | What it does | Read-only |
 |------|-------------|-----------|
 | `ros_get` | List/read resources from any menu path | ✅ |
@@ -86,6 +88,173 @@ environment:
 | `ros_system_info` | Quick system overview (version, CPU, RAM, uptime) | ✅ |
 | `ros_backup` | Create encrypted `.backup` file on router | ❌ |
 | `ros_backup_download` | Download `.backup` file as base64 | ✅ |
+
+### Convenience Tools (69 domain-specific tools with typed parameters)
+
+<details>
+<summary>🌐 <b>Interfaces</b> (11 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_interface_list` | List all interfaces | ✅ |
+| `ros_interface_get` | Get interface by name | ✅ |
+| `ros_interface_enable` | Enable an interface | ❌ |
+| `ros_interface_disable` | Disable an interface | ❌ |
+| `ros_vlan_add` | Create a VLAN interface | ❌ |
+| `ros_vlan_list` | List VLAN interfaces | ✅ |
+| `ros_vlan_remove` | Remove a VLAN interface | ❌ |
+| `ros_bridge_add` | Create a bridge | ❌ |
+| `ros_bridge_port_add` | Add a port to a bridge | ❌ |
+| `ros_bridge_port_list` | List bridge ports | ✅ |
+| `ros_bridge_port_remove` | Remove a bridge port | ❌ |
+
+</details>
+
+<details>
+<summary>📍 <b>IP Address</b> (3 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_ip_address_add` | Add an IP address to an interface | ❌ |
+| `ros_ip_address_list` | List all IP addresses | ✅ |
+| `ros_ip_address_remove` | Remove an IP address | ❌ |
+
+</details>
+
+<details>
+<summary>📡 <b>DHCP</b> (6 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_dhcp_server_add` | Create a DHCP server | ❌ |
+| `ros_dhcp_server_list` | List DHCP servers | ✅ |
+| `ros_dhcp_server_remove` | Remove a DHCP server | ❌ |
+| `ros_dhcp_network_add` | Add a DHCP network definition | ❌ |
+| `ros_pool_add` | Add an IP address pool | ❌ |
+| `ros_dhcp_lease_list` | List DHCP leases | ✅ |
+
+</details>
+
+<details>
+<summary>🔥 <b>Firewall</b> (10 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_firewall_filter_add` | Add a filter rule (chain, action, src/dst, ports, etc.) | ❌ |
+| `ros_firewall_filter_list` | List all filter rules | ✅ |
+| `ros_firewall_filter_get` | Get a specific filter rule | ✅ |
+| `ros_firewall_filter_update` | Update a filter rule | ❌ |
+| `ros_firewall_filter_remove` | Remove a filter rule | ❌ |
+| `ros_firewall_filter_enable` | Enable a filter rule | ❌ |
+| `ros_firewall_filter_disable` | Disable a filter rule | ❌ |
+| `ros_firewall_address_list_add` | Add an address list entry | ❌ |
+| `ros_firewall_address_list_list` | List address list entries | ✅ |
+| `ros_firewall_address_list_remove` | Remove an address list entry | ❌ |
+
+</details>
+
+<details>
+<summary>🔀 <b>NAT</b> (7 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_nat_add` | Add a NAT rule | ❌ |
+| `ros_nat_list` | List NAT rules | ✅ |
+| `ros_nat_get` | Get a specific NAT rule | ✅ |
+| `ros_nat_update` | Update a NAT rule | ❌ |
+| `ros_nat_remove` | Remove a NAT rule | ❌ |
+| `ros_nat_enable` | Enable a NAT rule | ❌ |
+| `ros_nat_disable` | Disable a NAT rule | ❌ |
+
+</details>
+
+<details>
+<summary>🌍 <b>DNS</b> (6 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_dns_get` | Get DNS configuration | ✅ |
+| `ros_dns_set_servers` | Set DNS servers | ❌ |
+| `ros_dns_static_add` | Add a static DNS entry | ❌ |
+| `ros_dns_static_list` | List static DNS entries | ✅ |
+| `ros_dns_static_remove` | Remove a static DNS entry | ❌ |
+| `ros_dns_cache_flush` | Flush the DNS cache | ❌ |
+
+</details>
+
+<details>
+<summary>🛤️ <b>Routing</b> (3 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_route_add` | Add a static route | ❌ |
+| `ros_route_list` | List all routes | ✅ |
+| `ros_route_remove` | Remove a static route | ❌ |
+
+</details>
+
+<details>
+<summary>📜 <b>Logs</b> (3 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_log_get` | Get system log entries | ✅ |
+| `ros_log_search_topic` | Search logs by topic (e.g. "firewall", "dhcp") | ✅ |
+| `ros_log_filter_severity` | Filter logs by severity (e.g. "error", "warning") | ✅ |
+
+</details>
+
+<details>
+<summary>👤 <b>Users</b> (5 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_user_add` | Add a new user | ❌ |
+| `ros_user_list` | List all users | ✅ |
+| `ros_user_remove` | Remove a user | ❌ |
+| `ros_user_active_list` | List active user sessions | ✅ |
+| `ros_user_group_list` | List user groups | ✅ |
+
+</details>
+
+<details>
+<summary>📶 <b>Wireless</b> (5 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_wireless_list` | List wireless interfaces | ✅ |
+| `ros_wireless_scan` | Scan for wireless networks | ✅ |
+| `ros_wireless_registration_list` | List connected wireless clients | ✅ |
+| `ros_wireless_security_profile_add` | Add a wireless security profile | ❌ |
+| `ros_wireless_security_profile_remove` | Remove a wireless security profile | ❌ |
+
+</details>
+
+<details>
+<summary>📦 <b>Containers</b> (7 tools) — unique, not in competitors!</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_container_list` | List containers | ✅ |
+| `ros_container_add` | Add a container from a remote image | ❌ |
+| `ros_container_start` | Start a container | ❌ |
+| `ros_container_stop` | Stop a container | ❌ |
+| `ros_container_remove` | Remove a container | ❌ |
+| `ros_container_mount_add` | Add a container mount point | ❌ |
+| `ros_container_mount_list` | List container mount points | ✅ |
+
+</details>
+
+<details>
+<summary>⏰ <b>Scheduler</b> (3 tools)</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_scheduler_add` | Add a scheduler entry | ❌ |
+| `ros_scheduler_list` | List scheduler entries | ✅ |
+| `ros_scheduler_remove` | Remove a scheduler entry | ❌ |
+
+</details>
 
 ### Connection Parameters
 
