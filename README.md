@@ -284,10 +284,25 @@ This is essentially **RouterOS Safe Mode over REST API**. Clutch for risky firew
 |------|-------------|-----------|
 | `ros_dns_get` | Get DNS configuration | ✅ |
 | `ros_dns_set_servers` | Set DNS servers | ❌ |
-| `ros_dns_static_add` | Add a static DNS entry | ❌ |
+| `ros_dns_static_add` | Add a static DNS entry — supports all record types (see below) | ❌ |
 | `ros_dns_static_list` | List static DNS entries | ✅ |
 | `ros_dns_static_remove` | Remove a static DNS entry | ❌ |
 | `ros_dns_cache_flush` | Flush the DNS cache | ❌ |
+
+**`ros_dns_static_add` supported record types:**
+
+| Type | Key params | Example use case |
+|------|-----------|------------------|
+| **A / AAAA** | `name` + `address` | `name="srv.local"`, `address="10.0.0.5"` |
+| **CNAME** | `name` + `cname` | `name="www.example.com"`, `cname="example.com"` |
+| **FWD** | `name` + `forward_to` | Forward `*.corp` queries to internal DNS |
+| **MX** | `name` + `mx_exchange` + `mx_preference` | Mail server records |
+| **NS** | `name` + `ns` | Delegate zone to another nameserver |
+| **NXDOMAIN** | `name` (or `regexp`) | Block domains (ad blocking, parental control) |
+| **SRV** | `name` + `srv_target/port/priority/weight` | Service discovery records |
+| **TXT** | `name` + `text` | SPF, DKIM, verification records |
+
+Additional options: `regexp` (match pattern instead of exact name), `address_list` (add resolved IPs to firewall address list), `match_subdomain`, `ttl`, `disabled`.
 
 </details>
 
