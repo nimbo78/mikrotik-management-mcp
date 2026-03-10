@@ -8,7 +8,10 @@ import respx
 
 from mikrotik_management_mcp.models import RouterConnection
 from mikrotik_management_mcp.tools.dhcp import (
+    ros_dhcp_client_list,
+    ros_dhcp_client_release,
     ros_dhcp_lease_list,
+    ros_dhcp_lease_make_static,
     ros_dhcp_network_add,
     ros_dhcp_server_add,
     ros_pool_add,
@@ -112,3 +115,36 @@ class TestDhcpTools:
         assert len(data) == 1
         assert data[0]["address"] == "10.0.0.50"
         assert data[0]["status"] == "bound"
+
+
+@pytest.mark.asyncio
+class TestDhcpNewTools:
+    @respx.mock
+    async def test_lease_make_static(self, conn):
+        route = respx.post(f"{BASE}/ip/dhcp-server/lease/make-static").mock(
+            return_value=httpx.Response(200, json={})
+        )
+        result = await ros_dhcp_lease_make_static(conn, id="*1")
+        body = json.loads(route.calls[0].request.content)
+        assert body[".id"] == "*1"
+
+    @respx.mock
+    async def test_dhcp_client_list(self, conn):
+        respx.get(f"{BASE}/ip/dhcp-client").mock(
+            return_value=httpx.Response(200, json=[
+                {".id": "*1", "interface": "ether1", "address": "203.0.113.5/24", "status": "bound"},
+            ])
+        )
+        result = await ros_dhcp_client_list(conn)
+        data = json.loads(result)
+        assert len(data) == 1
+        assert data[0]["status"] == "bound"
+
+    @respx.mock
+    async def test_dhcp_client_release(self, conn):
+        route = respx.post(f"{BASE}/ip/dhcp-client/release").mock(
+            return_value=httpx.Response(200, json={})
+        )
+        result = await ros_dhcp_client_release(conn, id="*1")
+        body = json.loads(route.calls[0].request.content)
+        assert body[".id"] == "*1"

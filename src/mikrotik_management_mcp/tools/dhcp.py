@@ -71,3 +71,35 @@ async def ros_pool_add(
 async def ros_dhcp_lease_list(connection: RouterConnection) -> str:
     """List all DHCP leases."""
     return await tool_request(connection, "GET", "ip/dhcp-server/lease")
+
+
+@mcp.tool(annotations={"title": "Make DHCP Lease Static", "readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+async def ros_dhcp_lease_make_static(connection: RouterConnection, id: str) -> str:
+    """Convert a dynamic DHCP lease to a static lease by its .id.
+
+    This gives the device a permanent IP address reservation.
+
+    Args:
+        connection: MikroTik device connection parameters.
+        id: The .id of the DHCP lease to make static.
+    """
+    return await tool_request(connection, "POST", "ip/dhcp-server/lease/make-static", data={".id": id})
+
+
+@mcp.tool(annotations={"title": "List DHCP Clients", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True})
+async def ros_dhcp_client_list(connection: RouterConnection) -> str:
+    """List all DHCP clients (interfaces getting IP via DHCP, typically WAN)."""
+    return await tool_request(connection, "GET", "ip/dhcp-client")
+
+
+@mcp.tool(annotations={"title": "Release DHCP Client", "readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True})
+async def ros_dhcp_client_release(connection: RouterConnection, id: str) -> str:
+    """Release and renew a DHCP client lease by its .id.
+
+    Common for resetting WAN DHCP to get a new IP from ISP.
+
+    Args:
+        connection: MikroTik device connection parameters.
+        id: The .id of the DHCP client to release.
+    """
+    return await tool_request(connection, "POST", "ip/dhcp-client/release", data={".id": id})

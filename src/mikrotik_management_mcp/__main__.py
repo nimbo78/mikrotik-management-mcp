@@ -3,7 +3,7 @@
 import argparse
 
 from .security import load_security_config
-from .server import mcp
+from .server import load_tool_modules, mcp
 
 
 def main():
@@ -23,6 +23,7 @@ def main():
     args = parser.parse_args()
 
     load_security_config()
+    load_tool_modules()
 
     if args.transport == "http":
         mcp.run(transport="streamable-http", host=args.host, port=args.port)

@@ -14,6 +14,7 @@ from mikrotik_management_mcp.tools.system import (
     _format_bytes,
     ros_backup,
     ros_backup_download,
+    ros_file_list,
     ros_system_info,
 )
 
@@ -295,3 +296,22 @@ class TestRosBackupDownload:
         result = await ros_backup_download(conn, filename="test.backup")
         assert "Unexpected Error" in result
         assert "RuntimeError" in result
+
+
+# ---------- ros_file_list ----------
+
+
+@pytest.mark.asyncio
+class TestRosFileList:
+    @respx.mock
+    async def test_success(self, conn):
+        respx.get("https://192.168.81.1:443/rest/file").mock(
+            return_value=httpx.Response(200, json=[
+                {".id": "*1", "name": "backup.backup", "type": "backup", "size": "1048576"},
+                {".id": "*2", "name": "export.rsc", "type": "script", "size": "2048"},
+            ])
+        )
+        result = await ros_file_list(conn)
+        data = json.loads(result)
+        assert len(data) == 2
+        assert data[0]["name"] == "backup.backup"

@@ -7,11 +7,12 @@ from typing import Optional
 ALLOWED_TARGETS: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
 ALLOWED_CLIENTS: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
 MCP_AUTH_TOKEN: Optional[str] = None
+ENABLED_MODULES: set[str] | None = None  # None = all enabled
 
 
 def load_security_config() -> None:
     """Load security settings from environment variables."""
-    global ALLOWED_TARGETS, ALLOWED_CLIENTS, MCP_AUTH_TOKEN
+    global ALLOWED_TARGETS, ALLOWED_CLIENTS, MCP_AUTH_TOKEN, ENABLED_MODULES
 
     targets = os.environ.get("ALLOWED_TARGETS", "")
     ALLOWED_TARGETS = (
@@ -28,6 +29,13 @@ def load_security_config() -> None:
     )
 
     MCP_AUTH_TOKEN = os.environ.get("MCP_AUTH_TOKEN") or None
+
+    modules = os.environ.get("ENABLED_MODULES", "")
+    ENABLED_MODULES = (
+        {m.strip() for m in modules.split(",") if m.strip()}
+        if modules
+        else None
+    )
 
 
 def check_target_allowed(host: str) -> bool:

@@ -2,14 +2,18 @@
 
 > **Your MikroTik routers, now vibing with AI** 🤖✨
 
-MCP server that lets LLM agents (Claude, GPT, etc.) manage MikroTik RouterOS devices through the REST API. Zero stored credentials, full stateless proxy energy. Every tool call = one HTTP request to your router. No cap.
+MCP server that lets LLM agents (Claude, GPT, etc.) manage MikroTik RouterOS 7.1+ devices through the REST API. Zero stored credentials, full stateless proxy energy. Every tool call = one HTTP request to your router. No cap.
 
 ## ⚡ Features
 
-- 🔌 **77 tools** — 8 generic + 69 convenience across 12 domains (firewall, NAT, DNS, DHCP, VLANs, containers, and more)
+- 🔌 **108 tools** — 9 generic + 99 convenience across 21 domains (firewall, NAT, DNS, DHCP, VLANs, containers, PPPoE, queues, IPsec, diagnostics, and more)
+- 🛡️ **Safe Change workflow** — auto-revert on timeout, like RouterOS Safe Mode but over REST API
+- 🩺 **Health dashboard** — CPU, RAM, disk, temperature, conntrack, interface errors in one call
+- 📤 **Config export** — full RSC-format config dump, with optional section filter
+- 🏓 **Diagnostics with guardrails** — ping, traceroute, torch with enforced limits so the LLM can't accidentally DoS your router
 - 🔒 **Stateless** — no credentials stored, every call includes connection params
 - 🚀 **Dual transport** — `stdio` for local, `streamable-http` for Docker/network
-- 🛡️ **Security** — target allowlists, client allowlists, bearer token auth
+- 🎛️ **Modular** — `ENABLED_MODULES` env var lets operators trim the tool surface to only what they need
 - 📦 **Docker ready** — one `docker-compose up` and you're golden
 
 ## 🏗️ Quick Start
@@ -51,6 +55,7 @@ That's it. Server runs on port `8965` with HTTP transport. Configure security vi
 | `ALLOWED_TARGETS` | Comma-separated IPs/CIDRs of routers to allow | _(no restrictions)_ |
 | `ALLOWED_CLIENTS` | Comma-separated IPs/CIDRs of allowed MCP clients | _(no restrictions)_ |
 | `MCP_AUTH_TOKEN` | Bearer token for HTTP endpoint auth | _(no auth)_ |
+| `ENABLED_MODULES` | Comma-separated list of tool modules to load | _(all modules)_ |
 
 ### Generate a token
 
@@ -72,6 +77,49 @@ environment:
   - ALLOWED_TARGETS=192.168.81.0/24,10.0.0.0/8
   - ALLOWED_CLIENTS=192.168.81.0/24
   - MCP_AUTH_TOKEN=your_generated_token_here
+  - ENABLED_MODULES=crud,command,system,firewall,nat,dhcp
+```
+
+### 🎛️ ENABLED_MODULES — trim the tool surface
+
+By default all 22 modules load (108 tools). Set `ENABLED_MODULES` to a comma-separated list to only load what you need. This prevents LLM tool-selection confusion when you don't need all domains.
+
+| Module | Tools | Description |
+|--------|-------|-------------|
+| `crud` | 4 | Generic CRUD: `ros_get`, `ros_add`, `ros_update`, `ros_remove` |
+| `command` | 1 | `ros_command` — execute any RouterOS command |
+| `system` | 4 | `ros_system_info`, `ros_backup`, `ros_backup_download`, `ros_file_list` |
+| `interfaces` | 11 | Interfaces, VLANs, bridges |
+| `ip_address` | 3 | IP address management |
+| `dhcp` | 9 | DHCP servers, networks, pools, leases, clients |
+| `firewall` | 10 | Filter rules, address lists |
+| `nat` | 7 | NAT rules (srcnat/dstnat) |
+| `dns` | 6 | DNS config, static entries, cache flush |
+| `routing` | 3 | Static routes |
+| `logs` | 3 | System log reading and filtering |
+| `users` | 5 | User management and active sessions |
+| `wireless` | 5 | Wireless interfaces and security profiles |
+| `containers` | 7 | Container management (RouterOS containers feature) |
+| `scheduler` | 3 | Scheduler entries |
+| `diagnostics` | 3 | `ros_ping`, `ros_traceroute`, `ros_torch` with safety limits |
+| `safe_change` | 2 | `ros_safe_change_start` / `ros_safe_change_confirm` workflow |
+| `health` | 2 | `ros_health_check` dashboard + `ros_export` config dump |
+| `pppoe` | 7 | PPP secrets, active sessions, profiles |
+| `queues` | 6 | Simple queues with burst support |
+| `ipsec` | 5 | IPsec peers, identities, policies, installed SAs |
+| `neighbors` | 2 | ARP table + neighbor discovery (CDP/LLDP/MNDP) |
+
+**Examples:**
+
+```bash
+# ISP focused — subscriber management only
+ENABLED_MODULES=crud,command,system,pppoe,queues,dhcp
+
+# Minimal — just the essentials for diagnostics
+ENABLED_MODULES=crud,command,system,diagnostics,health
+
+# Enterprise — VPN and firewall focus
+ENABLED_MODULES=crud,command,system,firewall,nat,ipsec,routing,safe_change
 ```
 
 ## 🔧 Available Tools
@@ -88,8 +136,66 @@ environment:
 | `ros_system_info` | Quick system overview (version, CPU, RAM, uptime) | ✅ |
 | `ros_backup` | Create encrypted `.backup` file on router | ❌ |
 | `ros_backup_download` | Download `.backup` file as base64 | ✅ |
+| `ros_file_list` | List all files on the router (backups, exports, packages) | ✅ |
 
-### Convenience Tools (69 domain-specific tools with typed parameters)
+### 🛡️ Smart Tools (composite workflows with real logic)
+
+<details open>
+<summary>🩺 <b>Health & Export</b> (2 tools) — multi-endpoint dashboard + config export</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_health_check` | Comprehensive dashboard: CPU/RAM/disk %, temperature, conntrack usage, interface error counts — aggregates 4 endpoints in one call | ✅ |
+| `ros_export` | Export RouterOS config in RSC (script) format. Optional `section` filter (e.g. `"ip/firewall"`) | ✅ |
+
+</details>
+
+<details open>
+<summary>🏓 <b>Diagnostics</b> (3 tools) — network testing with safety guardrails</summary>
+
+| Tool | What it does | Guardrails | Read-only |
+|------|-------------|------------|-----------|
+| `ros_ping` | Ping a host from the router, returns min/avg/max/loss summary | `count` capped at 100 | ✅ |
+| `ros_traceroute` | Run traceroute from the router | `count` capped at 30 | ✅ |
+| `ros_torch` | Real-time traffic monitor on an interface | `duration` capped at 30s | ✅ |
+
+All three enforce limits to prevent the LLM from accidentally running long commands that tie up the router's CPU. Timeout is always 60s.
+
+</details>
+
+<details open>
+<summary>🛡️ <b>Safe Change Workflow</b> (2 tools) — auto-revert on timeout, the killer feature</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_safe_change_start` | Creates backup + scheduler entry that auto-reverts in N minutes (1-30) | ❌ |
+| `ros_safe_change_confirm` | Removes the auto-revert scheduler, making changes permanent | ❌ |
+
+**How it works:**
+
+```
+1. LLM calls ros_safe_change_start(revert_minutes=5)
+   → Router creates a backup
+   → Router creates a scheduler to restore that backup in 5 minutes
+   → Returns scheduler_id
+
+2. LLM applies configuration changes using other tools
+   (firewall rules, NAT, routing, whatever)
+
+3a. Changes work? → LLM calls ros_safe_change_confirm(scheduler_id="*A")
+    → Scheduler removed, changes are permanent ✅
+
+3b. Changes broke something? → Do nothing
+    → Scheduler fires after 5 minutes
+    → Router restores backup automatically 🔄
+    → You're back to the working config
+```
+
+This is essentially **RouterOS Safe Mode over REST API**. Clutch for risky firewall/NAT changes where you might lose connectivity to the router.
+
+</details>
+
+### Convenience Tools (99 domain-specific tools with typed parameters)
 
 <details>
 <summary>🌐 <b>Interfaces</b> (11 tools)</summary>
@@ -122,7 +228,7 @@ environment:
 </details>
 
 <details>
-<summary>📡 <b>DHCP</b> (6 tools)</summary>
+<summary>📡 <b>DHCP</b> (9 tools)</summary>
 
 | Tool | What it does | Read-only |
 |------|-------------|-----------|
@@ -132,6 +238,9 @@ environment:
 | `ros_dhcp_network_add` | Add a DHCP network definition | ❌ |
 | `ros_pool_add` | Add an IP address pool | ❌ |
 | `ros_dhcp_lease_list` | List DHCP leases | ✅ |
+| `ros_dhcp_lease_make_static` | Convert a dynamic lease to static (permanent reservation) | ❌ |
+| `ros_dhcp_client_list` | List DHCP clients (WAN interfaces getting IP via DHCP) | ✅ |
+| `ros_dhcp_client_release` | Release and renew a DHCP client lease | ❌ |
 
 </details>
 
@@ -231,7 +340,7 @@ environment:
 </details>
 
 <details>
-<summary>📦 <b>Containers</b> (7 tools) — unique, not in competitors!</summary>
+<summary>📦 <b>Containers</b> (7 tools)</summary>
 
 | Tool | What it does | Read-only |
 |------|-------------|-----------|
@@ -253,6 +362,58 @@ environment:
 | `ros_scheduler_add` | Add a scheduler entry | ❌ |
 | `ros_scheduler_list` | List scheduler entries | ✅ |
 | `ros_scheduler_remove` | Remove a scheduler entry | ❌ |
+
+</details>
+
+<details>
+<summary>📞 <b>PPPoE / PPP</b> (7 tools) — ISP subscriber management</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_ppp_secret_add` | Add a PPP secret (subscriber account) with rate limits | ❌ |
+| `ros_ppp_secret_list` | List all PPP secrets | ✅ |
+| `ros_ppp_secret_remove` | Remove a PPP secret | ❌ |
+| `ros_ppp_active_list` | List active PPP connections (who's online right now) | ✅ |
+| `ros_ppp_active_disconnect` | Disconnect an active PPP session | ❌ |
+| `ros_ppp_profile_list` | List PPP profiles (bandwidth templates) | ✅ |
+| `ros_ppp_profile_add` | Add a PPP profile with rate limits and DNS | ❌ |
+
+</details>
+
+<details>
+<summary>📊 <b>Queues</b> (6 tools) — bandwidth management</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_queue_simple_add` | Add a simple queue with max/burst limits | ❌ |
+| `ros_queue_simple_list` | List all simple queues | ✅ |
+| `ros_queue_simple_update` | Update queue settings (speed tier change) | ❌ |
+| `ros_queue_simple_remove` | Remove a simple queue | ❌ |
+| `ros_queue_simple_enable` | Enable a queue (re-enable suspended customer) | ❌ |
+| `ros_queue_simple_disable` | Disable a queue (suspend for non-payment) | ❌ |
+
+</details>
+
+<details>
+<summary>🔐 <b>IPsec</b> (5 tools) — VPN troubleshooting</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_ipsec_peer_list` | List IPsec peers (VPN endpoints) | ✅ |
+| `ros_ipsec_identity_list` | List IPsec identities (auth config) | ✅ |
+| `ros_ipsec_policy_list` | List IPsec policies (traffic selectors) | ✅ |
+| `ros_ipsec_installed_sa_list` | List installed Security Associations (is the VPN up?) | ✅ |
+| `ros_ipsec_peer_add` | Add an IPsec peer | ❌ |
+
+</details>
+
+<details>
+<summary>🔍 <b>Neighbors</b> (2 tools) — network discovery</summary>
+
+| Tool | What it does | Read-only |
+|------|-------------|-----------|
+| `ros_arp_list` | List ARP entries (IP-to-MAC mappings) | ✅ |
+| `ros_neighbor_list` | List discovered neighbors (CDP/LLDP/MNDP) | ✅ |
 
 </details>
 
@@ -279,22 +440,29 @@ Only `host` is required — the rest have sensible defaults (port 443, admin use
 
 ```json
 // 📋 List all IP addresses
-{"connection": {"host": "192.168.81.1"}, "path": "ip/address"}
+{"tool": "ros_get", "connection": {"host": "192.168.81.1"}, "path": "ip/address"}
 
-// 🔍 Get specific interface
-{"connection": {"host": "192.168.81.1"}, "path": "interface", "id": "ether1"}
+// 🩺 Full health check in one call
+{"tool": "ros_health_check", "connection": {"host": "192.168.81.1"}}
 
-// ➕ Add a firewall rule
-{"connection": {"host": "192.168.81.1"}, "path": "ip/firewall/filter",
- "data": {"chain": "forward", "action": "drop", "comment": "blocked by AI lol"}}
+// 🏓 Ping with guardrails
+{"tool": "ros_ping", "connection": {"host": "192.168.81.1"},
+ "address": "8.8.8.8", "count": 10}
 
-// 🏓 Ping test
-{"connection": {"host": "192.168.81.1"}, "path": "tool/ping",
- "data": {"address": "8.8.8.8", "count": "4"}}
+// 📤 Export firewall config
+{"tool": "ros_export", "connection": {"host": "192.168.81.1"},
+ "section": "ip/firewall"}
+
+// 🛡️ Safe change workflow
+{"tool": "ros_safe_change_start", "connection": {"host": "192.168.81.1"},
+ "revert_minutes": 5}
+// ... make changes ...
+{"tool": "ros_safe_change_confirm", "connection": {"host": "192.168.81.1"},
+ "scheduler_id": "*A"}
 
 // 💾 Create backup
-{"connection": {"host": "192.168.81.1"}, "name": "daily-backup",
- "backup_password": "super-secret"}
+{"tool": "ros_backup", "connection": {"host": "192.168.81.1"},
+ "name": "daily-backup", "backup_password": "super-secret"}
 ```
 
 ## 🔗 Client Configuration
@@ -328,6 +496,64 @@ Only `host` is required — the rest have sensible defaults (port 443, admin use
 }
 ```
 
+## 🏛️ Architecture
+
+```
+mikrotik-management-mcp/
+├── pyproject.toml
+├── Dockerfile
+├── docker-compose.yml
+├── src/
+│   └── mikrotik_management_mcp/
+│       ├── __init__.py                # version
+│       ├── __main__.py                # entrypoint: parse args, load config, run
+│       ├── server.py                  # FastMCP instance + deferred module loading
+│       ├── client.py                  # RouterOS REST API async client (stateless)
+│       ├── models.py                  # Pydantic models (RouterConnection)
+│       ├── security.py                # ALLOWED_TARGETS, ALLOWED_CLIENTS, ENABLED_MODULES
+│       └── tools/
+│           ├── _helpers.py            # Shared request helpers with structured logging
+│           ├── crud.py                # ros_get, ros_add, ros_update, ros_remove
+│           ├── command.py             # ros_command
+│           ├── system.py              # ros_system_info, ros_backup, ros_backup_download, ros_file_list
+│           ├── interfaces.py          # Interfaces, VLANs, bridges
+│           ├── ip_address.py          # IP address management
+│           ├── dhcp.py                # DHCP servers, leases, clients, pools
+│           ├── firewall.py            # Filter rules, address lists
+│           ├── nat.py                 # NAT rules
+│           ├── dns.py                 # DNS config, static entries
+│           ├── routing.py             # Static routes
+│           ├── logs.py                # System log reading
+│           ├── users.py               # User management
+│           ├── wireless.py            # Wireless interfaces
+│           ├── containers.py          # RouterOS containers
+│           ├── scheduler.py           # Scheduler entries
+│           ├── diagnostics.py         # ping, traceroute, torch (with guardrails)
+│           ├── safe_change.py         # Safe change workflow (backup + auto-revert)
+│           ├── health.py              # Health check dashboard + config export
+│           ├── pppoe.py               # PPP secrets, active sessions, profiles
+│           ├── queues.py              # Simple queues with burst support
+│           ├── ipsec.py               # IPsec VPN troubleshooting
+│           └── neighbors.py           # ARP + neighbor discovery
+└── tests/
+    ├── conftest.py
+    ├── test_client.py
+    ├── test_models.py
+    ├── test_security.py
+    ├── test_helpers.py
+    ├── test_tools_*.py                # One per tool module (216 tests)
+    └── integration/
+        ├── test_readonly.py           # Safe tests against real routers
+        └── test_destructive.py        # CRUD tests (test routers only)
+```
+
+**Key design decisions:**
+
+- **Stateless** — no connection pooling, no stored state. Each tool call creates its own `httpx.AsyncClient`
+- **Deferred module loading** — tool modules load after security config, so `ENABLED_MODULES` is respected
+- **Structured logging** — every request logged with host/method/path/latency (passwords never logged)
+- **Nested `connection`** — `RouterConnection` Pydantic model with validation, not flat params
+
 ## 🛠️ RouterOS Preparation
 
 Before using this server, make sure your MikroTik router is ready:
@@ -341,6 +567,7 @@ Before using this server, make sure your MikroTik router is ready:
    ```
    /user add name=mcp-api password=strong-password group=full
    ```
+   > 💡 For read-only access, create a group with only `read`, `api`, `!ftp`, `!ssh`, `!telnet`, `!winbox` policies.
 
 3. **Test connectivity**:
    ```bash
@@ -355,13 +582,13 @@ Before using this server, make sure your MikroTik router is ready:
 # Install dev dependencies
 pip install -e ".[dev]"
 
-# Run unit tests
+# Run unit tests (216 tests, ~2 seconds)
 pytest tests/ --ignore=tests/integration -v
 
 # Run integration tests (read-only, against a real router)
 TEST_ROUTER_HOST=192.168.81.1 TEST_ROUTER_PASSWORD=secret pytest tests/integration/ -v
 
-# Run ALL tests including destructive (only on test routers you don't mind breaking!)
+# Run ALL tests including destructive (only on test routers!)
 TEST_ROUTER_HOST=10.0.0.1 TEST_ROUTER_PASSWORD=secret TEST_ROUTER_DESTRUCTIVE=true pytest tests/integration/ -v
 ```
 

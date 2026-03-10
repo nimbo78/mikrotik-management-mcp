@@ -205,3 +205,37 @@ async def ros_backup_download(
         return f"Timeout: Router {connection.host} did not respond within the timeout period."
     except Exception as e:
         return f"Unexpected Error: {type(e).__name__}: {e}"
+
+
+# ---------- ros_file_list ----------
+
+
+@mcp.tool(
+    name="ros_file_list",
+    annotations={
+        "title": "List Files on Router",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)
+async def ros_file_list(connection: RouterConnection) -> str:
+    """List all files on the router (backups, exports, packages, etc.)."""
+    if not check_target_allowed(connection.host):
+        return f"Error: Target host {connection.host} is not in the allowed targets list."
+
+    try:
+        result = await RouterOSClient.request(connection, "GET", "file")
+        return json.dumps(result, indent=2)
+    except RouterOSError as e:
+        return f"RouterOS Error ({e.status_code}): {e.message}"
+    except httpx.ConnectError:
+        return (
+            f"Connection Error: Cannot reach {connection.host}:{connection.port}. "
+            "Check host, port, and network connectivity."
+        )
+    except httpx.TimeoutException:
+        return f"Timeout: Router {connection.host} did not respond within the timeout period."
+    except Exception as e:
+        return f"Unexpected Error: {type(e).__name__}: {e}"
